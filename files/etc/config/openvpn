@@ -1,0 +1,3 @@
+config openvpn 'OpenWrt'
+	option config '/etc/openvpn/server.conf'
+	option enabled '0'

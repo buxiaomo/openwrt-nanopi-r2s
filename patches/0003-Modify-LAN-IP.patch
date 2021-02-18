@@ -1,0 +1,31 @@
+From 5e5709ed0f889e7bb6ce141fb095b05eaa907d37 Mon Sep 17 00:00:00 2001
+From: buxiaomo <95112082@qq.com>
+Date: Mon, 3 Aug 2020 19:46:18 +0800
+Subject: [PATCH 3/8] Modify LAN IP
+
+---
+ package/base-files/files/bin/config_generate | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/package/base-files/files/bin/config_generate b/package/base-files/files/bin/config_generate
+index 4ee4f6fdb3..3dd9ed12f5 100755
+--- a/package/base-files/files/bin/config_generate
++++ b/package/base-files/files/bin/config_generate
+@@ -100,11 +100,11 @@ generate_network() {
+ 		static)
+ 			local ipad
+ 			case "$1" in
+-				lan) ipad=${ipaddr:-"192.168.1.1"} ;;
+-				*) ipad=${ipaddr:-"192.168.$((addr_offset++)).1"} ;;
++				lan) ipad=${ipaddr:-"172.16.1.1"} ;;
++				*) ipad=${ipaddr:-"172.16.$((addr_offset++)).1"} ;;
+ 			esac
+ 
+-			netm=${netmask:-"255.255.255.0"}
++			netm=${netmask:-"255.255.0.0"}
+ 
+ 			uci -q batch <<-EOF
+ 				set network.$1.proto='static'
+-- 
+2.27.0
+

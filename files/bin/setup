@@ -1,0 +1,156 @@
+#!/bin/sh
+set -x
+# openvpn
+# ---- start ----
+# 设置防火墙
+OVPN_NAME=$(uci get firewall.ovpn.name)
+if [ "${OVPN_NAME}" != "Allow-OpenVPN" ];then
+  echo "setting openvpn firewall"
+  uci set firewall.ovpn="rule"
+  uci set firewall.ovpn.name="Allow-OpenVPN"
+  uci set firewall.ovpn.src="wan"
+  uci set firewall.ovpn.dest_port="1194"
+  uci set firewall.ovpn.proto="udp"
+  uci set firewall.ovpn.target="ACCEPT"
+  uci commit firewall
+fi
+
+# 设置vpn虚拟网卡
+VPN_DEVICE=$(uci get firewall.lan.device)
+if [ "${VPN_DEVICE}" != "tun0" ];then
+  uci rename firewall.@zone[0]="lan"
+  uci rename firewall.@zone[1]="wan"
+  uci rename firewall.@forwarding[0]="lan_wan"
+  uci del_list firewall.lan.device="tun0"
+  uci add_list firewall.lan.device="tun0"
+  uci commit firewall
+fi
+
+# 创建证书
+if [ ! -d /etc/openvpn/pki ] || [ ! -f /etc/openvpn/pki/dh.pem ] || [ ! -f /etc/openvpn/pki/tc.pem ];then
+  rm -rf /etc/openvpn/pki
+  export EASYRSA_PKI="/etc/openvpn/pki"
+  export EASYRSA_REQ_CN="vpnca"
+  easyrsa --batch init-pki
+  easyrsa --batch gen-dh
+  easyrsa --batch build-ca nopass
+  easyrsa --batch build-server-full vpnserver nopass
+  easyrsa --batch build-client-full vpnclient nopass
+  openvpn --genkey --secret ${EASYRSA_PKI}/tc.pem
+fi
+
+# 证书配置
+if [ "$(uci get ddns.@service[-1].enabled)" == "1" ];then
+  OVPN_SERV=$(uci get ddns.@service[-1].lookup_host)
+elif [ "$(uci get ddns.@service[0].enabled)" == "1" ];then
+  OVPN_SERV=$(uci get ddns.@service[0].lookup_host)
+else
+  OVPN_SERV=$(uci get network.lan.ipaddr)
+fi
+
+LAN_IPADDR=$(uci get network.lan.ipaddr)
+LAN_NETMASK=$(uci get network.lan.netmask)
+if [ "${LAN_NETMASK}" == "255.255.255.0" ];then
+  LAN_IPADDR=$(echo ${LAN_IPADDR} | awk -F '.' '{print $1"."$2"."$3".0"}')
+elif [ "${LAN_NETMASK}" == "255.255.0.0" ];then
+  LAN_IPADDR=$(echo ${LAN_IPADDR} | awk -F '.' '{print $1"."$2".0.0"}')
+fi
+
+DH_KEY="$(cat "${EASYRSA_PKI}/dh.pem")"
+TC_KEY="$(sed -e "/^#/d;/^\w/N;s/\n//" "${EASYRSA_PKI}/tc.pem")"
+CA_CERT="$(openssl x509 -in "${EASYRSA_PKI}/ca.crt")"
+SER_CERT="$(openssl x509 -in "${EASYRSA_PKI}/issued/vpnserver.crt")"
+SER_KEY="$(cat "${EASYRSA_PKI}/private/vpnserver.key")"
+CLI_CERT="$(openssl x509 -in "${EASYRSA_PKI}/issued/vpnclient.crt")"
+CLI_KEY="$(cat "${EASYRSA_PKI}/private/vpnclient.key")"
+VPN_DEVICE=$(uci get firewall.lan.device)
+
+# 生成客户端文件
+if [ ! -f /etc/openvpn/client.ovpn ];then
+  cat << EOF > "/etc/openvpn/client.ovpn"
+verb 3
+dev tun
+nobind
+client
+remote ${OVPN_SERV} 1194 udp
+auth-nocache
+remote-cert-tls server
+route-nopull
+route ${LAN_IPADDR} ${LAN_NETMASK} vpn_gateway
+<tls-crypt>
+${TC_KEY}
+</tls-crypt>
+<ca>
+${CA_CERT}
+</ca>
+<cert>
+${CLI_CERT}
+</cert>
+<key>
+${CLI_KEY}
+</key>
+EOF
+fi
+
+# 生成服务端文件
+if [ ! -f /etc/openvpn/server.conf ];then
+  cat << EOF > "/etc/openvpn/server.conf"
+verb 3
+user nobody
+group nogroup
+dev ${VPN_DEVICE}
+port 1194
+proto udp
+server 10.8.0.0 255.255.255.0
+topology subnet
+client-to-client
+keepalive 10 120
+persist-tun
+persist-key
+duplicate-cn
+push "dhcp-option DNS ${LAN_IPADDR}"
+push "redirect-gateway def1"
+push "persist-tun"
+push "persist-key"
+<dh>
+${DH_KEY}
+</dh>
+<tls-crypt>
+${TC_KEY}
+</tls-crypt>
+<ca>
+${CA_CERT}
+</ca>
+<cert>
+${SER_CERT}
+</cert>
+<key>
+${SER_KEY}
+</key>
+EOF
+fi
+uci get openvpn.OpenWrt > /dev/null 2>&1
+if [ $? != 0 ]; then
+  uci set openvpn.OpenWrt=openvpn
+  uci set openvpn.OpenWrt.config='/etc/openvpn/server.conf'
+  uci set openvpn.OpenWrt.enabled='1'
+  uci commit openvpn
+fi
+sed -i '/^\/etc\/openvpn$/d' /etc/sysupgrade.conf
+echo "/etc/openvpn" >> /etc/sysupgrade.conf
+
+
+LAN_IF=$(uci get network.lan.ifname)
+sed -i "/allow vpn traffic to local/d" /etc/firewall.user
+echo "iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -o ${LAN_IF} -j MASQUERADE --comment 'allow vpn traffic to local'" >> /etc/firewall.user
+
+/etc/init.d/openvpn restart
+/etc/init.d/firewall reload
+
+echo Done! You can find config files here:
+echo /etc/openvpn/server.conf
+echo /etc/openvpn/client.ovpn
+# ---- e n d ----
+
+# ---- start ----
+# ---- e n d ----

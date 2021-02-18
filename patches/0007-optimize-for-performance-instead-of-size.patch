@@ -1,0 +1,39 @@
+From 437a095d387ddd13ae52c59d25215f967e6ac5d4 Mon Sep 17 00:00:00 2001
+From: buxiaomo <95112082@qq.com>
+Date: Tue, 4 Aug 2020 14:36:30 +0800
+Subject: [PATCH 7/8] optimize for performance instead of size
+
+---
+ include/target.mk | 2 +-
+ rules.mk          | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/include/target.mk b/include/target.mk
+index aba477e83b..ed212dfed5 100644
+--- a/include/target.mk
++++ b/include/target.mk
+@@ -159,7 +159,7 @@ LINUX_RECONF_DIFF = $(call __linux_confcmd,$(filter-out $(LINUX_RECONFIG_TARGET)
+ ifeq ($(DUMP),1)
+   BuildTarget=$(BuildTargets/DumpCurrent)
+ 
+-  CPU_CFLAGS = -Os -pipe
++  CPU_CFLAGS = -O3 -pipe
+   ifneq ($(findstring mips,$(ARCH)),)
+     ifneq ($(findstring mips64,$(ARCH)),)
+       CPU_TYPE ?= mips64
+diff --git a/rules.mk b/rules.mk
+index e734b4a582..96a0269c9e 100644
+--- a/rules.mk
++++ b/rules.mk
+@@ -249,7 +249,7 @@ export PKG_CONFIG
+ HOSTCC:=gcc
+ HOSTCXX:=g++
+ HOST_CPPFLAGS:=-I$(STAGING_DIR_HOST)/include $(if $(IS_PACKAGE_BUILD),-I$(STAGING_DIR_HOSTPKG)/include -I$(STAGING_DIR)/host/include)
+-HOST_CFLAGS:=-O2 $(HOST_CPPFLAGS)
++HOST_CFLAGS:=-O3 $(HOST_CPPFLAGS)
+ HOST_LDFLAGS:=-L$(STAGING_DIR_HOST)/lib $(if $(IS_PACKAGE_BUILD),-L$(STAGING_DIR_HOSTPKG)/lib -L$(STAGING_DIR)/host/lib)
+ 
+ ifeq ($(CONFIG_EXTERNAL_TOOLCHAIN),)
+-- 
+2.27.0
+

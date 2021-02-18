@@ -1,0 +1,22 @@
+From 7f165bc699fb60eefe195eaecaa60044214be262 Mon Sep 17 00:00:00 2001
+From: buxiaomo <95112082@qq.com>
+Date: Mon, 3 Aug 2020 23:01:57 +0800
+Subject: [PATCH 6/8] dropbear only bind lan
+
+---
+ package/network/services/dropbear/files/dropbear.config | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/package/network/services/dropbear/files/dropbear.config b/package/network/services/dropbear/files/dropbear.config
+index 2139ba0bbe..ca147f89ab 100644
+--- a/package/network/services/dropbear/files/dropbear.config
++++ b/package/network/services/dropbear/files/dropbear.config
+@@ -2,4 +2,5 @@ config dropbear
+ 	option PasswordAuth 'on'
+ 	option RootPasswordAuth 'on'
+ 	option Port         '22'
++        option Interface 'lan'
+ #	option BannerFile   '/etc/banner'
+-- 
+2.27.0
+

@@ -1,0 +1,99 @@
+name: OpenWrt Firmware For R2S
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - ".github/workflows/pipeline.yml"
+      - "files/*"
+      - "patches/*"
+      - "action.sh"
+      - "config"
+      - "feeds.conf.default"
+  schedule:
+    - cron: '00 18 * * 5'
+
+jobs:
+  clean:
+    runs-on: ubuntu-18.04
+    steps:
+      - name: clean old releases
+        uses: dev-drprasad/delete-older-releases@master
+        with:
+          keep_latest: 14
+          delete_tags: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+
+      - name: clean old action artifacts
+        uses: kolpav/purge-artifacts-action@master
+        with:
+          token: ${{ secrets.TOKEN }}
+          expire-in: 14d
+
+      - name: clean workflow log
+        uses: Mattraks/delete-workflow-runs@main
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: 14
+
+  build:
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@master
+
+      - name: Clean workspace
+        run: |
+          ./action.sh cleanup
+
+      - name: Init system
+        run: |
+          ./action.sh init
+
+      - name: Build firmware
+        run: |
+          ./action.sh build
+
+      - name: Artifact firmware
+        run: |
+          ./action.sh artifact
+
+      - name: Set Release Name
+        id: artifact
+        run: |
+          release_tag="$(date +%Y-%m-%d)"
+          echo "##[set-output name=release_tag;]$release_tag"
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+        with:
+          tag_name: ${{ steps.artifact.outputs.release_tag }}
+          release_name: Auto Release ${{ steps.artifact.outputs.release_tag }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset(openwrt-r2s-squashfs-img)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./openwrt-r2s-squashfs-img.zip
+          asset_name: openwrt-r2s-squashfs-img.zip
+          asset_content_type: application/zip
+
+      - name: Upload Release Asset(openwrt-r2s-ext4-img)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./openwrt-r2s-ext4-img.zip
+          asset_name: openwrt-r2s-ext4-img.zip
+          asset_content_type: application/zip
