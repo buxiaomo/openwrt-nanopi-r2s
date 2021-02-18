@@ -3,7 +3,7 @@ name: OpenWrt Firmware For R2S
 on:
   push:
     branches:
-      - master
+      - main
     paths:
       - ".github/workflows/pipeline.yml"
       - "files/*"
