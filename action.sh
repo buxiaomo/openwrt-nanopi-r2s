@@ -1,6 +1,5 @@
 #!/bin/bash
 set -ex
-
 function cleanup() {
 	if [ -f /swapfile ];then
 		sudo swapoff /swapfile
