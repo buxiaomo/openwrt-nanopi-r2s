@@ -1,0 +1,24 @@
+From c36f5a00c5ed177d1399a4bfaf2acc10a61ecfc3 Mon Sep 17 00:00:00 2001
+From: GitHub Action <action@github.com>
+Date: Wed, 14 Apr 2021 09:50:26 +0800
+Subject: [PATCH] Modify-LAN-IP
+
+---
+ package/base-files/files/bin/config_generate | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/package/base-files/files/bin/config_generate b/package/base-files/files/bin/config_generate
+index 1179d38809..c7730b1cc0 100755
+--- a/package/base-files/files/bin/config_generate
++++ b/package/base-files/files/bin/config_generate
+@@ -140,7 +140,7 @@ generate_network() {
+ 		static)
+ 			local ipad
+ 			case "$1" in
+-				lan) ipad=${ipaddr:-"192.168.1.1"} ;;
++				lan) ipad=${ipaddr:-"192.168.254.1"} ;;
+ 				*) ipad=${ipaddr:-"192.168.$((addr_offset++)).1"} ;;
+ 			esac
+
+--
+2.25.1
